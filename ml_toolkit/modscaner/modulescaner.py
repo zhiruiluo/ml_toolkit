@@ -5,12 +5,14 @@ import os
 from pathlib import Path
 import enum
 
-# from src.trainer.myprogramargs import MyProgramArgs
-
-
-def import_function_or_class(module,method_name):
-    module = importlib.import_module(f'{module}')
-    method = getattr(module, method_name)
+def import_function_or_class(module_name,method_name):
+    module = importlib.import_module(f'{module_name}')
+    method = getattr(module, method_name, None)
+    if not method:
+        module = importlib.import_module(f'{module_name}.{method_name}')
+        method = getattr(module, method_name, None)
+        if not method:
+            raise ValueError(f"module {module_name}.{method_name} has no attribute '{method_name}'")
     return method
 
 def filter_dict(func, kwarg_dict, args):
@@ -25,7 +27,7 @@ def filter_dict(func, kwarg_dict, args):
     return filtered_dict
 
 def init_class_from_namespace(class_, namespace):
-    print(namespace)
+    # print(namespace)
     common_kwargs = filter_dict(class_, copy.deepcopy(vars(namespace)), {'args': namespace})
     return class_(**common_kwargs)
 
@@ -40,7 +42,6 @@ def init_module(class_, args):
 def scan_dir_pyfile(root):
     modules = os.listdir(Path(root))
     # fns = [ f[:-3] for f in modules if not f.endswith('__init__.py') and f.endswith('.py')]
-    
     fns = []
     for mod in modules:
         if mod.endswith('__init__.py') or mod == '__pycache__':
