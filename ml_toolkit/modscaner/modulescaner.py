@@ -8,10 +8,10 @@ import enum
 def import_function_or_class(module_name,method_name):
     module = importlib.import_module(f'{module_name}')
     method = getattr(module, method_name, None)
-    if not method:
+    if not method or not isinstance(method, type):
         module = importlib.import_module(f'{module_name}.{method_name}')
         method = getattr(module, method_name, None)
-        if not method:
+        if not method or not isinstance(method, type):
             raise ValueError(f"module {module_name}.{method_name} has no attribute '{method_name}'")
     return method
 
