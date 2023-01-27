@@ -102,6 +102,28 @@ def get_logger_seperate_config(debug=False, exp_name = '', subdirectory='', file
 
     return logging.getLogger()
 
+def setup_logger(dir, fn, disable_stream_output, debug):
+    logger_config_path = 'logger_setup.yaml'
+    config_dict = get_yaml_config(logger_config_path)
+    dir = Path(dir)
+    dir.mkdir(parents=True, exist_ok=True)
+    for fh, suffix in zip(['file', 'errorlog'], ['.log','.err']):
+        config_dict['handlers'][fh]['filename'] = dir.joinpath(fn+suffix)
+        
+    if debug:
+        for k in config_dict['loggers'].keys():
+            config_dict['loggers'][k]['level'] = 'DEBUG'
+        config_dict['root']['level'] = 'DEBUG'
+    
+    if disable_stream_output:
+        for k in config_dict['loggers'].keys():
+            config_dict['loggers'][k]['handlers'] = ['file', 'errorlog']
+        config_dict['root']['handlers'] = ['file', 'errorlog']
+    
+    logging.config.dictConfig(config_dict)
+    return logging.getLogger()
+    
+    
 def get_root_logger_default_config(debug=False, exp_name = '', subdirectory='', filename = '', log_std=False):
     logger_config_path = 'logger_config.yaml'
     config_dict = get_yaml_config(logger_config_path)

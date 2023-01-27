@@ -4,6 +4,17 @@ import inspect
 import os
 from pathlib import Path
 import enum
+from typing import Callable
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def import_class(name):
+    components = name.split('.')
+    mod = importlib.import_module('.'.join(components[:-1]))
+    mod = getattr(mod, components[-1])
+    return mod
 
 def import_function_or_class(module_name,method_name):
     module = importlib.import_module(f'{module_name}')
@@ -27,7 +38,6 @@ def filter_dict(func, kwarg_dict, args):
     return filtered_dict
 
 def init_class_from_namespace(class_, namespace):
-    # print(namespace)
     common_kwargs = filter_dict(class_, copy.deepcopy(vars(namespace)), {'args': namespace})
     return class_(**common_kwargs)
 
@@ -39,31 +49,46 @@ def init_module(class_, args):
     filtered_dict = {key: kwarg_dict[key] for key in common_args}
     return class_(**filtered_dict)
 
-def scan_dir_pyfile(root):
-    modules = os.listdir(Path(root))
-    # fns = [ f[:-3] for f in modules if not f.endswith('__init__.py') and f.endswith('.py')]
-    fns = []
+def default_model_dict_init(root):
+    model_dict = {}
+    root = Path(root)
+    modules = os.listdir(root)
     for mod in modules:
         if mod.endswith('__init__.py') or mod == '__pycache__':
             continue
         if mod.endswith('.py'):
-            fns.append(mod[:-3])
+            model_dict[mod[:-3]] = str(root.joinpath(mod[:-3])).replace('/','.') + '.' +  mod[:-3]
         else:
-            fns.append(mod)
-    return sorted(fns)
+            model_dict[mod] = str(root.joinpath(mod[:-3])).replace('/','.') + '.' +  mod
+    return model_dict
 
 
 class ModuleScannerBase():
-    def __init__(self, root, module_category) -> None:
+    def __init__(self, root, module_category, module_dict_init: Callable = None) -> None:
         self.root = Path(root)
         self.module_category = module_category
-        self.module_list = scan_dir_pyfile(self.root)
+        self.module_dict_init = module_dict_init
+        
+    @property
+    def module_list(self):
+        if not hasattr(self, '_module_list'):
+            self._module_list = scan_dir_pyfile(self.root)
+        return self._module_list
+
+    @property
+    def module_dict(self):
+        if not hasattr(self, '_module_dict'):
+            if self.module_dict_init is None:
+                self._module_dict = default_model_dict_init(self.root)
+            else:
+                self._module_dict = self.module_dict_init()
+        return self._module_dict
 
     def default(self) -> str:
         return self.choices()[0]
 
     def choices(self):
-        return self.module_list
+        return sorted(self.module_dict.keys())
 
     def enum(self):
         choices = self.choices()
@@ -71,44 +96,13 @@ class ModuleScannerBase():
         for i, c in enumerate(choices):
             cho[c] = i
         return enum.Enum(self.module_category, cho)
-
-    def load_class(self,name):
-        path = str(self.root.joinpath(name)).replace('/','.')
-        return import_function_or_class(path,name)
-
+    
     def getClass(self, name):
         if name not in self.choices():
             raise ValueError(f'No module named {name}!')
-        cls = self.load_class(name)
+        cls = import_class(self.module_dict[name])
         return cls
 
     def getObj(self, name, args):
         cls = self.getClass(name)
         return init_module(cls, args)
-
-    def getConfig(self, name, args):
-        if name not in self.choices():
-            raise ValueError(f'No module named {name}!')
-        dc = copy.deepcopy(vars(args)[f'{self.module_category}Parm'])
-        # path = str(self.root.joinpath(name)).replace('/','.')
-        # config_cls = import_function_or_class(path,'Config')
-        # print(vars(args)[f'{self.module_category}Parm'])
-        # return init_class_from_namespace(config_cls, args)
-        # exit()
-        return dc
-        
-    def getConfigCls(self, name):
-        if name not in self.choices():
-            raise ValueError(f'No module named {name}!')
-        path = str(self.root.joinpath(name)).replace('/','.')
-        config_cls = import_function_or_class(path,'Config')
-        return config_cls
-
-    def getParams(self, name):
-        if name not in self.choices():
-            raise ValueError(f'No module named {name}!')
-        path = str(self.root.joinpath(name)).replace('/','.')
-        get_options = import_function_or_class(path,'get_options')
-        options = get_options()
-        param_keys = [o[0] for o in options]
-        return param_keys, options

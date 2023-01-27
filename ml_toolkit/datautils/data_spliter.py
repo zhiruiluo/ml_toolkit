@@ -5,13 +5,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 class IndexSpliter():
-    def __init__(self, key_name, labels, splits: str, nrepeat, index_buffer_flag=True) -> None:
+    def __init__(self, key_name, labels, splits: str, nrepeat, index_buffer_flag=True, index_buffer_path: str ='./spliting/') -> None:
         self.key_name = key_name
         self.labels = labels
         self.splits = splits
         self.nrepeat = nrepeat
         self.index_buffer_flag = index_buffer_flag
-        self._index_save_path = './spliting/'
+        self._index_save_path = index_buffer_path
 
     def _splits_(self, labels):
         train_index, val_index, test_index = None,None,None
